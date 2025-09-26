@@ -5,33 +5,38 @@ const db = require("./db");
 const bcrypt = require("bcrypt");
 
 // REGISTER User
+// REGISTER User
 router.post("/register", async (req, res) => {
   try {
-    const { phone_number, password, name, user_image, address, gps_location, user_type } = req.body;
-    if (!phone_number || !password || !name || !user_type) {
+    // เปลี่ยนชื่อ field ให้ตรงกับ Flutter (camelCase)
+    const { phoneNumber, password, name, userImage, address, gpsLocation, userType } = req.body;
+
+    if (!phoneNumber || !password || !name || !userType) {
       return res.status(400).json({ message: "กรอกข้อมูลไม่ครบ" });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
 
+    // แปลง GPS ถ้ามี
     let point = null;
-    if (gps_location) {
-      const [lng, lat] = gps_location.split(" ").map(Number);
-      point = [lng, lat];
+    if (gpsLocation && gpsLocation.includes(" ")) {
+      const [lng, lat] = gpsLocation.split(" ").map(Number);
+      if (!isNaN(lng) && !isNaN(lat)) {
+        point = [lng, lat];
+      }
     }
 
     const [result] = await db.execute(
       `INSERT INTO Users (phone_number, password, name, user_image, address, gps_location, user_type)
-       VALUES (?, ?, ?, ?, ?, POINT(?, ?), ?)`,
+       VALUES (?, ?, ?, ?, ?, ${point ? "POINT(?, ?)" : "NULL"}, ?)`,
       [
-        phone_number,
+        phoneNumber,
         password_hash,
         name,
-        user_image || null,
+        userImage || null,
         address || null,
-        point ? point[0] : null,
-        point ? point[1] : null,
-        user_type
+        ...(point ? [point[0], point[1]] : []),
+        userType
       ]
     );
 
@@ -44,6 +49,7 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // LOGIN User
@@ -96,3 +102,4 @@ router.get("/search/:phone_number", async (req, res) => {
 });
 
 module.exports = router;
+
