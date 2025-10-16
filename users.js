@@ -300,5 +300,100 @@ router.post('/deliveries/:id/upload_status_image', async (req, res) => {
   }
 });
 
+// ===================== SHOW MY DELIVERIES (Sender / Receiver) =====================
+router.get('/deliveries/my', async (req, res) => {
+  try {
+    const { user_id, phone_number } = req.query;
+
+    if (!user_id && !phone_number) {
+      return res.status(400).json({
+        message: "ต้องระบุ user_id (sender) หรือ phone_number (receiver)"
+      });
+    }
+
+    let condition = '';
+    const params = [];
+
+    if (user_id) {
+      condition = 'd.sender_id = ?';
+      params.push(user_id);
+    } else if (phone_number) {
+      condition = 'd.receiver_phone_number = ?';
+      params.push(phone_number);
+    }
+
+    const [rows] = await db.execute(`
+      SELECT 
+        d.delivery_id,
+        d.delivery_status,
+        d.product_image,
+        d.pickup_address,
+        ST_X(d.pickup_gps) AS pickup_lon,
+        ST_Y(d.pickup_gps) AS pickup_lat,
+        d.dropoff_address,
+        ST_X(d.dropoff_gps) AS dropoff_lon,
+        ST_Y(d.dropoff_gps) AS dropoff_lat,
+        d.created_at,
+        d.updated_at,
+
+        -- Sender
+        s.user_id AS sender_id,
+        s.name AS sender_name,
+        s.phone_number AS sender_phone,
+        s.user_image AS sender_image,
+        s.address AS sender_address,
+        ST_X(s.gps_location) AS sender_lon,
+        ST_Y(s.gps_location) AS sender_lat,
+
+        -- Receiver
+        d.receiver_phone_number,
+        rcv.name AS receiver_name,
+        rcv.user_image AS receiver_image,
+        rcv.address AS receiver_address,
+        ST_X(rcv.gps_location) AS receiver_lon,
+        ST_Y(rcv.gps_location) AS receiver_lat,
+
+        -- Rider
+        rd.rider_id,
+        rd.name AS rider_name,
+        rd.phone_number AS rider_phone,
+        rd.rider_image AS rider_image,
+        rd.vehicle_registration,
+        ST_X(rd.current_location) AS rider_lon,
+        ST_Y(rd.current_location) AS rider_lat
+      FROM Deliveries d
+      LEFT JOIN Users s ON d.sender_id = s.user_id
+      LEFT JOIN Users rcv ON d.receiver_phone_number = rcv.phone_number
+      LEFT JOIN Riders rd ON d.rider_id = rd.rider_id
+      WHERE ${condition}
+      ORDER BY d.created_at DESC
+    `, params);
+
+    // ดึง items และ images ของแต่ละ delivery
+    for (const d of rows) {
+      const [items] = await db.execute(
+        `SELECT order_id, item_description, item_image 
+         FROM Multi_Item_Orders WHERE delivery_id = ?`,
+        [d.delivery_id]
+      );
+
+      const [images] = await db.execute(
+        `SELECT image_id, image_url, status, uploaded_at 
+         FROM Delivery_Images WHERE delivery_id = ? ORDER BY uploaded_at ASC`,
+        [d.delivery_id]
+      );
+
+      d.items = items;
+      d.images = images;
+    }
+
+    res.json({ total: rows.length, deliveries: rows });
+  } catch (err) {
+    console.error("get my deliveries error", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 // ===================== EXPORT =====================
 module.exports = router;
+
