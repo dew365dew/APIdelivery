@@ -56,6 +56,31 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+// ===================== UPDATE USER TYPE =====================
+router.put("/update_type/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { user_type } = req.body;
+
+    if (!user_type || !["Sender", "Receiver"].includes(user_type)) {
+      return res.status(400).json({ message: "user_type ต้องเป็น Sender หรือ Receiver เท่านั้น" });
+    }
+
+    const [result] = await db.execute(
+      `UPDATE Users SET user_type = ? WHERE user_id = ?`,
+      [user_type, user_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "ไม่พบผู้ใช้ที่ต้องการแก้ไข" });
+    }
+
+    res.json({ message: "อัปเดต user_type สำเร็จ", user_id, user_type });
+  } catch (err) {
+    console.error("update user_type error", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
 
 // LOGIN User
 router.post("/login", async (req, res) => {
@@ -396,4 +421,5 @@ router.get('/deliveries/my', async (req, res) => {
 
 // ===================== EXPORT =====================
 module.exports = router;
+
 
