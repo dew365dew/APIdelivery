@@ -202,7 +202,71 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
 
 
+// ===================== GET ALL DELIVERIES ASSIGNED TO RIDER =====================
+router.get("/my-deliveries/:rider_id", async (req, res) => {
+  try {
+    const { rider_id } = req.params;
+
+    const [rows] = await db.execute(`
+      SELECT 
+        d.delivery_id,
+        d.delivery_status,
+        d.product_image,
+        d.pickup_address,
+        ST_X(d.pickup_gps) AS pickup_lon,
+        ST_Y(d.pickup_gps) AS pickup_lat,
+        d.dropoff_address,
+        ST_X(d.dropoff_gps) AS dropoff_lon,
+        ST_Y(d.dropoff_gps) AS dropoff_lat,
+        d.created_at,
+
+        -- Sender
+        s.user_id AS sender_id,
+        s.name AS sender_name,
+        s.phone_number AS sender_phone,
+        s.user_image AS sender_image,
+        s.address AS sender_address,
+        ST_X(s.gps_location) AS sender_lon,
+        ST_Y(s.gps_location) AS sender_lat,
+
+        -- Receiver
+        d.receiver_phone_number,
+        rcv.name AS receiver_name,
+        rcv.user_image AS receiver_image,
+        rcv.address AS receiver_address,
+        ST_X(rcv.gps_location) AS receiver_lon,
+        ST_Y(rcv.gps_location) AS receiver_lat
+
+      FROM Deliveries d
+      LEFT JOIN Users s ON d.sender_id = s.user_id
+      LEFT JOIN Users rcv ON d.receiver_phone_number = rcv.phone_number
+      WHERE d.rider_id = ?
+      ORDER BY d.created_at DESC
+    `, [rider_id]);
+
+    // ✅ ดึงรายการสินค้าจาก Multi_Item_Orders
+    for (const d of rows) {
+      const [items] = await db.execute(
+        `SELECT order_id, item_description, item_image 
+         FROM Multi_Item_Orders 
+         WHERE delivery_id = ?`,
+        [d.delivery_id]
+      );
+      d.items = items;
+    }
+
+    res.json({
+      total: rows.length,
+      deliveries: rows,
+    });
+  } catch (err) {
+    console.error("Error fetching rider deliveries:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 module.exports = router;
+
 
 
 
