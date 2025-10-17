@@ -141,7 +141,32 @@ router.get("/available-deliveries", async (req, res) => {
   }
 });
 
+// UPDATE delivery status
+router.put('/deliveries/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { delivery_status, rider_id } = req.body;
+    if (!delivery_status) return res.status(400).json({ message: 'ต้องระบุ delivery_status' });
+
+    const params = [delivery_status];
+    let sql = `UPDATE Deliveries SET delivery_status = ?`;
+    if (rider_id) {
+      sql += `, rider_id = ?`;
+      params.push(rider_id);
+    }
+    sql += ` WHERE delivery_id = ?`;
+    params.push(id);
+
+    await db.execute(sql, params);
+    res.json({ message: 'อัปเดตสถานะสำเร็จ' });
+  } catch (err) {
+    console.error('update status err', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 
 
 module.exports = router;
+
 
