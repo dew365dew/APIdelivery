@@ -141,32 +141,68 @@ router.get("/available-deliveries", async (req, res) => {
   }
 });
 
-// UPDATE delivery status
+// ✅ UPDATE delivery status
 router.put('/deliveries/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // delivery_id
     const { delivery_status, rider_id } = req.body;
-    if (!delivery_status) return res.status(400).json({ message: 'ต้องระบุ delivery_status' });
 
-    const params = [delivery_status];
-    let sql = `UPDATE Deliveries SET delivery_status = ?`;
-    if (rider_id) {
-      sql += `, rider_id = ?`;
-      params.push(rider_id);
+    if (!delivery_status)
+      return res.status(400).json({ message: 'ต้องระบุ delivery_status' });
+
+    // ✅ เริ่ม transaction
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // ✅ อัปเดตสถานะใน Deliveries
+      let sql = `UPDATE Deliveries SET delivery_status = ?`;
+      const params = [delivery_status];
+
+      if (rider_id) {
+        sql += `, rider_id = ?`;
+        params.push(rider_id);
+      }
+
+      sql += ` WHERE delivery_id = ?`;
+      params.push(id);
+
+      await connection.execute(sql, params);
+
+      // ✅ ถ้ามี rider_id → set availability_status = FALSE
+      if (rider_id) {
+        await connection.execute(
+          `UPDATE Riders SET availability_status = FALSE WHERE rider_id = ?`,
+          [rider_id]
+        );
+      }
+
+      // ✅ commit
+      await connection.commit();
+      connection.release();
+
+      res.json({
+        message: 'อัปเดตสถานะสำเร็จ',
+        updated_delivery_id: id,
+        rider_id: rider_id || null,
+        delivery_status,
+      });
+    } catch (err) {
+      await connection.rollback();
+      connection.release();
+      console.error('update status transaction error:', err);
+      res.status(500).json({ message: 'Transaction error', error: err.message });
     }
-    sql += ` WHERE delivery_id = ?`;
-    params.push(id);
-
-    await db.execute(sql, params);
-    res.json({ message: 'อัปเดตสถานะสำเร็จ' });
   } catch (err) {
-    console.error('update status err', err);
+    console.error('update status error', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
 
 
+
 module.exports = router;
+
 
 
