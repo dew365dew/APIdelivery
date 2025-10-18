@@ -141,7 +141,7 @@ router.get("/available-deliveries", async (req, res) => {
   }
 });
 
-// ✅ UPDATE delivery status
+// ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่)
 router.put('/deliveries/:id/status', async (req, res) => {
   try {
     const { id } = req.params; // delivery_id
@@ -149,6 +149,26 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
     if (!delivery_status)
       return res.status(400).json({ message: 'ต้องระบุ delivery_status' });
+
+    // ✅ ถ้ามี rider_id ต้องเช็คว่า rider ว่างหรือไม่
+    if (rider_id) {
+      const [riderRows] = await db.execute(
+        `SELECT availability_status FROM Riders WHERE rider_id = ?`,
+        [rider_id]
+      );
+
+      if (riderRows.length === 0) {
+        return res.status(404).json({ message: 'ไม่พบข้อมูลไรเดอร์นี้' });
+      }
+
+      const isAvailable = riderRows[0].availability_status;
+
+      if (!isAvailable) {
+        return res.status(400).json({
+          message: '❌ ไรเดอร์ไม่ว่าง ไม่สามารถรับงานใหม่ได้',
+        });
+      }
+    }
 
     // ✅ เริ่ม transaction
     const connection = await db.getConnection();
@@ -169,7 +189,7 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
       await connection.execute(sql, params);
 
-      // ✅ ถ้ามี rider_id → set availability_status = FALSE
+      // ✅ ถ้ามี rider_id → set availability_status = FALSE (ไม่ว่าง)
       if (rider_id) {
         await connection.execute(
           `UPDATE Riders SET availability_status = FALSE WHERE rider_id = ?`,
@@ -177,12 +197,11 @@ router.put('/deliveries/:id/status', async (req, res) => {
         );
       }
 
-      // ✅ commit
       await connection.commit();
       connection.release();
 
       res.json({
-        message: 'อัปเดตสถานะสำเร็จ',
+        message: '✅ อัปเดตสถานะสำเร็จ',
         updated_delivery_id: id,
         rider_id: rider_id || null,
         delivery_status,
@@ -191,14 +210,19 @@ router.put('/deliveries/:id/status', async (req, res) => {
       await connection.rollback();
       connection.release();
       console.error('update status transaction error:', err);
-      res.status(500).json({ message: 'Transaction error', error: err.message });
+      res.status(500).json({
+        message: 'Transaction error',
+        error: err.message,
+      });
     }
   } catch (err) {
     console.error('update status error', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({
+      message: 'Server error',
+      error: err.message,
+    });
   }
 });
-
 
 
 
@@ -266,6 +290,7 @@ router.get("/my-deliveries/:rider_id", async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 
