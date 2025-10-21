@@ -289,7 +289,41 @@ router.get("/my-deliveries/:rider_id", async (req, res) => {
   }
 });
 
+
+
+// ✅ UPDATE Rider Current Location
+router.put("/:rider_id/location", async (req, res) => {
+  try {
+    const { rider_id } = req.params;
+    const { lon, lat } = req.body;
+
+    if (lon === undefined || lat === undefined) {
+      return res.status(400).json({ message: "ต้องระบุพิกัด lon และ lat" });
+    }
+
+    const [result] = await db.execute(
+      `UPDATE Riders SET current_location = POINT(?, ?) WHERE rider_id = ?`,
+      [lon, lat, rider_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "ไม่พบ Rider ที่ระบุ" });
+    }
+
+    res.json({
+      message: "อัปเดตตำแหน่งปัจจุบันของ Rider สำเร็จ",
+      rider_id,
+      current_location: { lon, lat },
+    });
+  } catch (err) {
+    console.error("Error updating rider location:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+
 module.exports = router;
+
 
 
 
