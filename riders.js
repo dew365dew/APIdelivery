@@ -322,7 +322,41 @@ router.put("/:rider_id/location", async (req, res) => {
 });
 
 
+// ✅ GET Rider Current Location
+router.get("/:rider_id/location", async (req, res) => {
+  try {
+    const { rider_id } = req.params;
+
+    // ดึงพิกัดจาก MySQL (ใช้ ST_X และ ST_Y แยกค่า lon/lat จาก POINT)
+    const [rows] = await db.execute(
+      `SELECT 
+          ST_X(current_location) AS lon, 
+          ST_Y(current_location) AS lat 
+        FROM Riders 
+        WHERE rider_id = ?`,
+      [rider_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "ไม่พบ Rider ที่ระบุ" });
+    }
+
+    res.json({
+      rider_id,
+      current_location: {
+        lon: rows[0].lon,
+        lat: rows[0].lat,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching rider location:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+
 module.exports = router;
+
 
 
 
