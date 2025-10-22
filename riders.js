@@ -302,8 +302,8 @@ router.put("/:rider_id/location", async (req, res) => {
     }
 
     const [result] = await db.execute(
-      `UPDATE Riders SET current_location = POINT(?, ?) WHERE rider_id = ?`,
-      [lon, lat, rider_id]
+      `UPDATE Riders SET current_location = ST_GeomFromText(?) WHERE rider_id = ?`,
+      [`POINT(${lon} ${lat})`, rider_id]
     );
 
     if (result.affectedRows === 0) {
@@ -320,6 +320,7 @@ router.put("/:rider_id/location", async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 
 // ✅ GET Rider Current Location
@@ -356,6 +357,7 @@ router.get("/:rider_id/location", async (req, res) => {
 
 
 module.exports = router;
+
 
 
 
