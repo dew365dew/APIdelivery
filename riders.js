@@ -142,6 +142,7 @@ router.get("/available-deliveries", async (req, res) => {
 });
 
 // ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่)
+// ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่ และปลดว่างเมื่อส่งเสร็จ)
 router.put('/deliveries/:id/status', async (req, res) => {
   try {
     const { id } = req.params; // delivery_id
@@ -163,7 +164,8 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
       const isAvailable = riderRows[0].availability_status;
 
-      if (!isAvailable) {
+      // ❌ ถ้าไรเดอร์ไม่ว่าง และสถานะไม่ใช่ “นำส่งสินค้าแล้ว” → ห้ามรับงานใหม่
+      if (!isAvailable && delivery_status !== 'ไรเดอร์นำส่งสินค้าแล้ว') {
         return res.status(400).json({
           message: '❌ ไรเดอร์ไม่ว่าง ไม่สามารถรับงานใหม่ได้',
         });
@@ -189,12 +191,21 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
       await connection.execute(sql, params);
 
-      // ✅ ถ้ามี rider_id → set availability_status = FALSE (ไม่ว่าง)
+      // ✅ ถ้ามี rider_id
       if (rider_id) {
-        await connection.execute(
-          `UPDATE Riders SET availability_status = FALSE WHERE rider_id = ?`,
-          [rider_id]
-        );
+        if (delivery_status === 'ไรเดอร์นำส่งสินค้าแล้ว') {
+          // ➕ ปลดสถานะให้ว่าง (TRUE)
+          await connection.execute(
+            `UPDATE Riders SET availability_status = TRUE WHERE rider_id = ?`,
+            [rider_id]
+          );
+        } else {
+          // ➖ ถ้ากำลังทำงานอยู่ ให้ไม่ว่าง (FALSE)
+          await connection.execute(
+            `UPDATE Riders SET availability_status = FALSE WHERE rider_id = ?`,
+            [rider_id]
+          );
+        }
       }
 
       await connection.commit();
@@ -357,6 +368,7 @@ router.get("/:rider_id/location", async (req, res) => {
 
 
 module.exports = router;
+
 
 
 
