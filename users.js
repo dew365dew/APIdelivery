@@ -419,7 +419,33 @@ router.get('/deliveries/my', async (req, res) => {
   }
 });
 
+
+
+// ===================== GET Delivery Status by ID =====================
+router.get('/deliveries/status/:delivery_id', async (req, res) => {
+  try {
+    const { delivery_id } = req.params;
+
+    const [rows] = await db.execute(
+      `SELECT delivery_id, delivery_status 
+       FROM Deliveries 
+       WHERE delivery_id = ?`,
+      [delivery_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "ไม่พบรายการจัดส่งที่ระบุ" });
+    }
+
+    res.json(rows[0]); // ✅ ส่งกลับเฉพาะ delivery_id และ delivery_status
+  } catch (err) {
+    console.error("get delivery status error", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
 // ===================== EXPORT =====================
 module.exports = router;
+
 
 
