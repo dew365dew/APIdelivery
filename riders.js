@@ -374,28 +374,40 @@ router.get("/:rider_id/location", async (req, res) => {
 
 
 // ✅ ADD delivery status image (เก็บชื่อไฟล์เท่านั้น)
+// ✅ แก้ไข: upload_status_image ให้เก็บเฉพาะรูป (image_name)
 router.post('/deliveries/:id/upload_status_image', async (req, res) => {
   try {
     const { id } = req.params;
     const { image_name } = req.body;
 
+    // ✅ ตรวจสอบว่ามี image_name ไหม
     if (!image_name) {
       return res.status(400).json({ message: 'ต้องระบุชื่อไฟล์ (image_name)' });
     }
 
+    // ✅ บันทึกชื่อไฟล์ลงฐานข้อมูล
     await db.execute(
       `INSERT INTO Delivery_Images (delivery_id, image_url) VALUES (?, ?)`,
       [id, image_name]
     );
 
-    res.json({ message: '✅ บันทึกรูปสถานะสำเร็จ', image_url: image_name });
+    // ✅ ส่งกลับผลลัพธ์
+    res.json({
+      message: '✅ บันทึกรูปสำเร็จ',
+      delivery_id: id,
+      image_url: image_name,
+    });
   } catch (err) {
-    console.error('upload status image err', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('❌ upload status image error:', err);
+    res.status(500).json({
+      message: 'Server error',
+      error: err.message,
+    });
   }
 });
 
 module.exports = router;
+
 
 
 
