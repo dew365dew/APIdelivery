@@ -375,30 +375,30 @@ router.get("/:rider_id/location", async (req, res) => {
 
 // ✅ ADD delivery status image (เก็บชื่อไฟล์เท่านั้น)
 // ✅ แก้ไข: upload_status_image ให้เก็บเฉพาะรูป (image_name)
-router.post('/deliveries/:id/upload_status_image', async (req, res) => {
+// ✅ UPDATE product_image ในตาราง Deliveries (เก็บชื่อไฟล์เท่านั้น)
+router.post('/deliveries/:id/upload_product_image', async (req, res) => {
   try {
     const { id } = req.params;
     const { image_name } = req.body;
 
-    // ✅ ตรวจสอบว่ามี image_name ไหม
+    // ✅ ตรวจสอบข้อมูล
     if (!image_name) {
       return res.status(400).json({ message: 'ต้องระบุชื่อไฟล์ (image_name)' });
     }
 
-    // ✅ บันทึกชื่อไฟล์ลงฐานข้อมูล
+    // ✅ อัปเดตชื่อไฟล์ใน Deliveries
     await db.execute(
-      `INSERT INTO Delivery_Images (delivery_id, image_url) VALUES (?, ?)`,
-      [id, image_name]
+      `UPDATE Deliveries SET product_image = ? WHERE delivery_id = ?`,
+      [image_name, id]
     );
 
-    // ✅ ส่งกลับผลลัพธ์
     res.json({
-      message: '✅ บันทึกรูปสำเร็จ',
+      message: '✅ บันทึกรูปสินค้าสำเร็จ',
       delivery_id: id,
-      image_url: image_name,
+      product_image: image_name,
     });
   } catch (err) {
-    console.error('❌ upload status image error:', err);
+    console.error('❌ upload product image error:', err);
     res.status(500).json({
       message: 'Server error',
       error: err.message,
@@ -406,7 +406,9 @@ router.post('/deliveries/:id/upload_status_image', async (req, res) => {
   }
 });
 
+
 module.exports = router;
+
 
 
 
