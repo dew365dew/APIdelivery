@@ -373,7 +373,30 @@ router.get("/:rider_id/location", async (req, res) => {
 });
 
 
+// ✅ ADD delivery status image (เก็บชื่อไฟล์เท่านั้น)
+router.post('/deliveries/:id/upload_status_image', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { image_name } = req.body;
+
+    if (!image_name) {
+      return res.status(400).json({ message: 'ต้องระบุชื่อไฟล์ (image_name)' });
+    }
+
+    await db.execute(
+      `INSERT INTO Delivery_Images (delivery_id, image_url) VALUES (?, ?)`,
+      [id, image_name]
+    );
+
+    res.json({ message: '✅ บันทึกรูปสถานะสำเร็จ', image_url: image_name });
+  } catch (err) {
+    console.error('upload status image err', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;
+
 
 
 
