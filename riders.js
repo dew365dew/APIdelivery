@@ -143,6 +143,7 @@ router.get("/available-deliveries", async (req, res) => {
 
 // ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่)
 // ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่ และปลดว่างเมื่อส่งเสร็จ)
+// ✅ UPDATE delivery status (เช็คก่อนว่า rider ว่างหรือไม่ และปลดว่างเมื่อส่งเสร็จ)
 router.put('/deliveries/:id/status', async (req, res) => {
   try {
     const { id } = req.params; // delivery_id
@@ -164,8 +165,13 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
       const isAvailable = riderRows[0].availability_status;
 
-      // ❌ ถ้าไรเดอร์ไม่ว่าง และสถานะไม่ใช่ “นำส่งสินค้าแล้ว” → ห้ามรับงานใหม่
-      if (!isAvailable && delivery_status !== 'ไรเดอร์นำส่งสินค้าแล้ว') {
+      // ❌ ถ้าไรเดอร์ไม่ว่าง แต่จะอัปเดตเป็น “รับสินค้าแล้วและกำลังเดินทาง” หรือ “นำส่งสินค้าแล้ว” → อนุญาต
+      const allowedStatuses = [
+        'ไรเดอร์รับสินค้าแล้วและกำลังเดินทาง',
+        'ไรเดอร์นำส่งสินค้าแล้ว',
+      ];
+
+      if (!isAvailable && !allowedStatuses.includes(delivery_status)) {
         return res.status(400).json({
           message: '❌ ไรเดอร์ไม่ว่าง ไม่สามารถรับงานใหม่ได้',
         });
@@ -191,7 +197,7 @@ router.put('/deliveries/:id/status', async (req, res) => {
 
       await connection.execute(sql, params);
 
-      // ✅ ถ้ามี rider_id
+      // ✅ ถ้ามี rider_id → ปรับสถานะว่าง / ไม่ว่าง ตามสถานะการส่ง
       if (rider_id) {
         if (delivery_status === 'ไรเดอร์นำส่งสินค้าแล้ว') {
           // ➕ ปลดสถานะให้ว่าง (TRUE)
@@ -368,6 +374,7 @@ router.get("/:rider_id/location", async (req, res) => {
 
 
 module.exports = router;
+
 
 
 
